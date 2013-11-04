@@ -1,0 +1,40 @@
+MIURA_STATE_CHAN='miura-state'
+MIURA_REF_CHAN='miura-ref'
+
+
+MakeAch()
+{
+    ach -1 -C $MIURA_STATE_CHAN -m 10 -n 3000
+    ach -1 -C $MIURA_REF_CHAN -m 10 -n 3000
+    sudo chmod 777 /dev/shm/achshm-miura-*
+}
+
+
+ShowUsage()
+{
+echo
+echo 'make     - make all ach channels'
+}
+
+
+# ------------------------------ #
+# -----Start Here--------------- #
+# ------------------------------ #
+
+echo '-------------------------------'
+echo '----------- MIURA--------------'
+echo '------- Daniel M. Lofaro-------'
+echo '--------dan@danLofaro.com------'
+echo '-------------------------------'
+
+case "$1" in
+  'make' )
+    MakeAch
+  ;;
+  *)
+    ShowUsage
+    exit 1
+  ;;
+esac
+
+exit 0
