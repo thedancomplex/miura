@@ -57,6 +57,7 @@ echo '-------------------------------'
 
 case "$1" in
   'make' )
+    echo 'Make Ach Chan'
     MakeAch
   ;;
   *)

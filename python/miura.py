@@ -38,8 +38,8 @@ from ctypes import Structure,c_uint16,c_double,c_ubyte,c_uint32,c_int16
 # import ach
 # import sys
 
-MIURA_CHAN_REF_NAME                = 'hubo-ref'
-MIURA_CHAN_STATE_NAME              = 'hubo-state'
+MIURA_CHAN_REF_NAME                = 'miura-ref'
+MIURA_CHAN_STATE_NAME              = 'miura-state'
 
 MIURA_JOINT_COUNT = 6
 
