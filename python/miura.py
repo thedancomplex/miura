@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 # /* -*-  indent-tabs-mode:t; tab-width: 8; c-basic-offset: 8  -*- */
 # /*
 # Copyright (c) 2013, Daniel M. Lofaro
@@ -26,43 +27,33 @@
 # ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 # */
 
-MIURA_STATE_CHAN='miura-state'
-MIURA_REF_CHAN='miura-ref'
+# from ctypes import *
+import ach
+import sys
+import time
+from ctypes import *
+from ctypes import Structure,c_uint16,c_double,c_ubyte,c_uint32,c_int16
 
 
-MakeAch()
-{
-    ach -1 -C $MIURA_STATE_CHAN -m 10 -n 3000
-    ach -1 -C $MIURA_REF_CHAN -m 10 -n 3000
-    sudo chmod 777 /dev/shm/achshm-miura-*
-}
+# import ach
+# import sys
+
+MIURA_CHAN_REF_NAME                = 'hubo-ref'
+MIURA_CHAN_STATE_NAME              = 'hubo-state'
+
+MIURA_JOINT_COUNT = 6
 
 
-ShowUsage()
-{
-echo
-echo 'make     - make all ach channels'
-}
 
+class MIURA_JOINT(Structure):
+    _pack_ = 1
+    _fields_ = [("ref"     , c_double),
+                ("pos"     , c_double)]
+class MIURA_STATE(Structure):
+    _pack_ = 1
+    _fields_ = [("joint"   , MIURA_JOINT*MIURA_JOINT_COUNT)]
 
-# ------------------------------ #
-# -----Start Here--------------- #
-# ------------------------------ #
+class MIURA_REF(Structure):
+    _pack_ = 1
+    _fields_ = [("joint"   , MIURA_JOINT*MIURA_JOINT_COUNT)]
 
-echo '-------------------------------'
-echo '----------- MIURA--------------'
-echo '------- Daniel M. Lofaro-------'
-echo '--------dan@danLofaro.com------'
-echo '-------------------------------'
-
-case "$1" in
-  'make' )
-    MakeAch
-  ;;
-  *)
-    ShowUsage
-    exit 1
-  ;;
-esac
-
-exit 0
