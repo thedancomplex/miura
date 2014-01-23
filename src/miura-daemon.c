@@ -1,6 +1,6 @@
 /* -*-	indent-tabs-mode:t; tab-width: 8; c-basic-offset: 8  -*- */
 /*
-Copyright (c) 2013, Daniel M. Lofaro
+Copyright (c) 2013,2014, Daniel M. Lofaro
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
@@ -40,6 +40,14 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 // for miura
 #include "miura.h"
+
+// for raspi debug
+#include <bcm2835.h>
+#include <string.h>
+
+// Blinks on RPi Plug P1 pin 11 (which is GPIO pin 17)
+#define PIN RPI_GPIO_P1_07
+
 
 #define MY_PRIORITY (49)/* we use 49 as the PRREMPT_RT use 50
 			    as the priority of kernel tasklets
@@ -85,6 +93,32 @@ ach_channel_t chan_miura_ref;      // miura-ref
 ach_channel_t chan_miura_state;    // miura-state
 
 int debug = 0;
+int flipFlag = 0;
+
+
+void flipBit(){
+  char command[50];
+
+  if( flipFlag == 1) {
+    strcpy( command, "echo 1 > /sys/class/gpio/gpio11/value" );
+    system(command);
+//      printf("1\n");
+//      bcm2835_gpio_set(RPI_V2_GPIO_P1_07);
+//      printf("111\n");
+      flipFlag = 0;
+		}
+  else {
+    strcpy( command, "echo 0 > /sys/class/gpio/gpio11/value" );
+    system(command);
+//      printf("0\n");
+//      bcm2835_gpio_clr(RPI_V2_GPIO_P1_07);
+//      printf("00\n");
+      flipFlag = 1;
+		}
+
+}
+
+
 
 void miuraLoop() {
 	// get initial values for hubo
@@ -117,9 +151,10 @@ void miuraLoop() {
 	// time info
 	struct timespec t;
 	//int interval = 500000000; // 2hz (0.5 sec)
-	int interval = 10000000; // 100 hz (0.01 sec)
+	//int interval = 10000000; // 100 hz (0.01 sec)
 	//int interval = 5000000; // 200 hz (0.005 sec)
 	//int interval = 2000000; // 500 hz (0.002 sec)
+	  int interval = 100000; // 1000 hz (0.001 sec)
 
 
 	/* Sampling Period */
@@ -128,10 +163,13 @@ void miuraLoop() {
 	// get current time
 	//clock_gettime( CLOCK_MONOTONIC,&t);
 	clock_gettime( 0,&t);
-
 	while(1) {
 		// wait until next shot
 		clock_nanosleep(0,TIMER_ABSTIME,&t, NULL);
+
+		/* RASPI pin debug */
+		flipBit();
+
 
 		/* Get latest ACH message */
 		r = ach_get( &chan_miura_state, &M_state, sizeof(M_state), &fs, NULL, ACH_O_LAST );
@@ -184,6 +222,20 @@ static inline void tsnorm(struct timespec *ts){
 }
 
 int main(int argc, char **argv) {
+
+	/* for FASPI debug */
+	if (!bcm2835_init())
+        	return 1;
+
+     char command[50];
+     strcpy( command, "echo 11 > /sys/class/gpio/export" );
+     system(command);
+     char command2[50];
+     strcpy( command2, "echo out > /sys/class/gpio/gpio11/direction" );
+     system(command2);
+//      printf("1\n");
+//      bcm2835_gpio_set(RPI_V2_GPIO_P1_07);
+
 
 	int vflag = 0;
 	int c;

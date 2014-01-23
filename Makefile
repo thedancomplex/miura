@@ -7,9 +7,10 @@ BINARIES := miura-daemon
 all : $(BINARIES)
 
 LIBS := -lach -lrt -lm -lc
+LIBSPI := -lbcm2835
 
 miura-daemon: src/miura-daemon.o
-	$(CC) -o $@ $< $(LIBS)
+	$(CC) -o $@ $< $(LIBS) $(LIBSPI)
 
 %.o: %.c
 	$(CC) $(CFLAGS) -o $@ -c $<
