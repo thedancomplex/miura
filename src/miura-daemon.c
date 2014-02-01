@@ -45,6 +45,44 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <bcm2835.h>
 #include <string.h>
 
+
+
+/* for direct access */
+// Access from ARM Running Linux
+
+#define BCM2708_PERI_BASE        0x20000000
+#define GPIO_BASE                (BCM2708_PERI_BASE + 0x200000) /* GPIO controller */
+
+
+
+#define PAGE_SIZE (4*1024)
+#define BLOCK_SIZE (4*1024)
+
+int  mem_fd;
+char *gpio_mem, *gpio_map;
+char *spi0_mem, *spi0_map;
+
+
+// I/O access
+volatile unsigned *gpio;
+
+
+// GPIO setup macros. Always use INP_GPIO(x) before using OUT_GPIO(x) or SET_GPIO_ALT(x,y)
+#define INP_GPIO(g) *(gpio+((g)/10)) &= ~(7<<(((g)%10)*3))
+#define OUT_GPIO(g) *(gpio+((g)/10)) |=  (1<<(((g)%10)*3))
+#define SET_GPIO_ALT(g,a) *(gpio+(((g)/10))) |= (((a)<=3?(a)+4:(a)==4?3:2)<<(((g)%10)*3))
+
+#define GPIO_SET *(gpio+7)  // sets   bits which are 1 ignores bits which are 0
+#define GPIO_CLR *(gpio+10) // clears bits which are 1 ignores bits which are 0
+
+
+
+
+
+
+
+
+
 // Blinks on RPi Plug P1 pin 11 (which is GPIO pin 17)
 #define PIN RPI_GPIO_P1_07
 
@@ -163,6 +201,48 @@ int debug = 0;
 int flipFlag = 0;
 
 
+void setup_io()
+{
+
+   /* open /dev/mem */
+   if ((mem_fd = open("/dev/mem", O_RDWR|O_SYNC) ) < 0) {
+      printf("can't open /dev/mem \n");
+      exit (-1);
+   }
+
+   /* mmap GPIO */
+
+   // Allocate MAP block
+   if ((gpio_mem = malloc(BLOCK_SIZE + (PAGE_SIZE-1))) == NULL) {
+      printf("allocation error \n");
+      exit (-1);
+   }
+
+   // Make sure pointer is on 4K boundary
+   if ((unsigned long)gpio_mem % PAGE_SIZE)
+     gpio_mem += PAGE_SIZE - ((unsigned long)gpio_mem % PAGE_SIZE);
+
+   // Now map it
+   gpio_map = (unsigned char *)mmap(
+      (caddr_t)gpio_mem,
+      BLOCK_SIZE,
+      PROT_READ|PROT_WRITE,
+      MAP_SHARED|MAP_FIXED,
+      mem_fd,
+      GPIO_BASE
+   );
+
+   if ((long)gpio_map < 0) {
+      printf("mmap error %d\n", (int)gpio_map);
+      exit (-1);
+   }
+
+   // Always use volatile pointer!
+   gpio = (volatile unsigned *)gpio_map;
+
+
+} // setup_io
+
 void flipBit(){
   char command[50];
 
@@ -187,24 +267,25 @@ void flipBit(){
 
 
 
+void doWiringPi(){
+
+  if( flipFlag == 1) {
+    GPIO_SET = 1<<11;
+    flipFlag = 0;
+		}
+  else {
+    GPIO_CLR = 1<<11;
+
+    flipFlag = 1;
+  }
+}
+
+
 void miuraLoop() {
 
-	/* for serial debug */
-	char *portname = "/dev/ttyUSB0";
-	int fd = open (portname, O_RDWR | O_NOCTTY | O_SYNC);
-	if (fd < 0)
-	{
-//	        error_message ("error %d opening %s: %s", errno, portname, strerror (errno));
-	        return;
-	}
-
-//	set_interface_attribs (fd, B115200, 0);  // set speed to 115,200 bps, 8n1 (no parity)
-	set_interface_attribs (fd, B230400, 0);  // set speed to 115,200 bps, 8n1 (no parity)
-	set_blocking (fd, 0);                // set no blocking
-
-//	write (fd, "hello!\n", 7);           // send 7 character greeting
-//	char buf [100];
-//	int n = read (fd, buf, sizeof buf);  // read up to 100 characters if ready to read
+ 	/* for pi test */
+	INP_GPIO(11);
+	OUT_GPIO(11);
 
 
 	// get initial values for hubo
@@ -238,9 +319,10 @@ void miuraLoop() {
 	struct timespec t;
 	//int interval = 500000000; // 2hz (0.5 sec)
 //	int interval = 10000000; // 100 hz (0.01 sec)
-	//int interval = 5000000; // 200 hz (0.005 sec)
-	//int interval = 2000000; // 500 hz (0.002 sec)
-	  int interval = 100000; // 1000 hz (0.001 sec)
+//	int interval = 5000000; // 200 hz (0.005 sec)
+//	int interval = 2000000; // 500 hz (0.002 sec)
+        int interval = 1000000; // 1000 hz (0.001 sec)
+//        int interval = 500000; // 2000 hz (0.0005 sec)
 
 
 	/* Sampling Period */
@@ -252,10 +334,10 @@ void miuraLoop() {
 
 	struct timespec tim, tim2;
 	tim.tv_sec = 0;
-	tim.tv_nsec = 790000;
+	tim.tv_nsec = 0;
 	while(1) {
 		// wait until next shot
-//		clock_nanosleep(0,TIMER_ABSTIME,&t, NULL);
+		clock_nanosleep(0,TIMER_ABSTIME,&t, NULL);
 		if(nanosleep(&tim , &tim2) < 0 )   
 		{
 			printf("Nano sleep system call failed \n");
@@ -266,7 +348,9 @@ void miuraLoop() {
 //		flipBit();
 		
 		/* test for serial */
-		write (fd, "\n", 1);           // send 7 character greeting
+//		write (fd, "\n", 1);           // send 7 character greeting
+
+		doWiringPi();
 
 		/* Get latest ACH message */
 		r = ach_get( &chan_miura_state, &M_state, sizeof(M_state), &fs, NULL, ACH_O_LAST );
@@ -319,7 +403,7 @@ static inline void tsnorm(struct timespec *ts){
 }
 
 int main(int argc, char **argv) {
-
+	setup_io();
 	/* for FASPI debug */
 	if (!bcm2835_init())
         	return 1;
